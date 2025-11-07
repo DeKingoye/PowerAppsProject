@@ -15,64 +15,75 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Étape 2 : Informations système
-      - name: Check environment info
-        shell: powershell
-        run: |
-          Write-Host "🧠 OS:" (Get-CimInstance Win32_OperatingSystem).Caption
-          Write-Host "💻 PowerShell version:" $PSVersionTable.PSVersion
+      # Étape 2 : Afficher un message de test
+      - name: Hello from Yann's Runner 👋
+        run: echo "✅ Workflow démarré sur le runner local de Yann !"
 
-      # Étape 3 : Installation du CLI Power Platform
-      - name: Install Power Platform CLI via Winget
+      # Étape 3 : Installation du Power Platform CLI depuis NuGet
+      - name: Install Power Platform CLI
         shell: powershell
         run: |
           Write-Host "Installing Power Platform CLI..."
-          winget install --id Microsoft.PowerAppsCLI -e --accept-source-agreements --accept-package-agreements
-          Write-Host "Searching pac.exe..."
-          $pac = (Get-ChildItem -Path "C:\" -Filter "pac.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
-          if ($pac) {
-            Write-Host "✅ PAC found at: $pac"
-            echo "PAC_PATH=$pac" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-            & $pac help
+          $cliPath = "$env:USERPROFILE\.nuget\packages\microsoft.powerapps.cli\1.50.1\tools\pac.exe"
+
+          if (-Not (Test-Path $cliPath)) {
+            Write-Host "Downloading and installing Power Platform CLI via winget..."
+            winget install --id Microsoft.PowerAppsCLI -e --source msstore --accept-package-agreements --accept-source-agreements
           } else {
-            Write-Error "❌ PAC not found anywhere on the system."
+            Write-Host "Power Platform CLI already installed at $cliPath"
+          }
+
+          # Vérifie que pac est accessible
+          if (Test-Path $cliPath) {
+            Write-Host "✅ PAC found at: $cliPath"
+            & $cliPath help
+            echo "PAC_PATH=$cliPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          } else {
+            Write-Error "❌ PAC not found after installation."
             exit 1
           }
 
-      # Étape 4 : Authentification
+      # Étape 4 : Authentification à Power Platform
       - name: Authenticate to Power Platform
         shell: powershell
         run: |
           Write-Host "🔐 Authenticating..."
-          & "$env:PAC_PATH" auth clear
-          & "$env:PAC_PATH" auth create --url https://org643d7b2c.crm12.dynamics.com --username "nicoise.nkounkou@edu.igensia.com" --password $env:PASSWORD
-          & "$env:PAC_PATH" auth list
+          & $env:PAC_PATH auth clear
+          & $env:PAC_PATH auth create --url https://org643d7b2c.crm12.dynamics.com --username "nicoise.nkounkou@edu.igensia.com" --password $env:PASSWORD
+          & $env:PAC_PATH auth list
         env:
           PASSWORD: ${{ secrets.PASSWORD }}
 
-      # Étape 5 : Export de la solution
+      # Étape 5 : Exporter la solution
       - name: Export Solution
-        shell: powershell
-        run: |
-          mkdir out -Force
-          & "$env:PAC_PATH" solution export --name aSolution --path out\aSolution.zip --environment https://org643d7b2c.crm12.dynamics.com
-        env:
-          PASSWORD: ${{ secrets.PASSWORD }}
+        uses: microsoft/powerplatform-actions/export-solution@v1
+        with:
+          environment-url: 'https://org643d7b2c.crm12.dynamics.com'
+          user-name: 'nicoise.nkounkou@edu.igensia.com'
+          password-secret: ${{ secrets.PASSWORD }}
+          solution-name: 'aSolution'
+          solution-output-file: 'aSolution.zip'
+          working-directory: 'out'
 
-      # Étape 6 : Décompactage de la solution
+      # Étape 6 : Décompacter la solution
       - name: Unpack Solution
-        shell: powershell
-        run: |
-          & "$env:PAC_PATH" solution unpack --zipfile out\aSolution.zip --folder out\solutions\solution-one --allowDelete true --overwrite true
+        uses: microsoft/powerplatform-actions/unpack-solution@v1
+        with:
+          solution-file: 'out/aSolution.zip'
+          solution-folder: 'out/solutions/solution-one'
+          solution-type: 'Unmanaged'
+          overwrite-files: true
 
-      # Étape 7 : Publication
+      # Étape 7 : Publier la solution
       - name: Publish Solution
-        shell: powershell
-        run: |
-          & "$env:PAC_PATH" solution publish --environment https://org643d7b2c.crm12.dynamics.com
+        uses: microsoft/powerplatform-actions/publish-solution@v1
+        with:
+          environment-url: 'https://org643d7b2c.crm12.dynamics.com'
+          user-name: 'nicoise.nkounkou@edu.igensia.com'
+          password-secret: ${{ secrets.PASSWORD }}
 
-      # Étape 8 : Commit dans le dépôt
-      - name: Commit solution to source control
+      # Étape 8 : Préparer les changements pour le commit
+      - name: Prepare solution changes for check-in into source control
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
           solution-folder: 'out/solutions/solution-one'
