@@ -4,11 +4,11 @@ on:
   workflow_dispatch:  # 👈 permet de le lancer manuellement depuis l’onglet Actions
   push:
     branches:
-      - master          # 👈 (optionnel) permet de lancer automatiquement sur un push vers main
+      - master          # 👈 permet de le déclencher automatiquement sur les pushs vers master
 
 jobs:
   build:
-    # ⚠️ Utilise ton runner local (pas celui de GitHub)
+    # 🖥️ Le job s’exécute sur ton runner local
     runs-on: self-hosted
 
     steps:
@@ -18,27 +18,49 @@ jobs:
       - name: Hello from Yann's Runner 👋
         run: echo "✅ Workflow démarré sur le runner local de Yann !"
 
+      # 1️⃣ Installe Node.js (nécessaire pour npm/pac)
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      # 2️⃣ Installe le Power Platform CLI (pac)
+      - name: Install Power Platform CLI manually
+        run: |
+          npm install -g pac
+          pac --version
+
+      # 3️⃣ (optionnel mais utile) Vérifie que pac est bien accessible
+      - name: Verify pac installation
+        run: |
+          echo "🔍 Vérification de pac CLI..."
+          pac help
+
+      # 4️⃣ Installe les Power Platform Tools GitHub Actions
       - name: Install Power Platform Tools
         uses: microsoft/powerplatform-actions/actions-install@v1
 
+      # 5️⃣ Exporte ta solution Power Platform
       - name: Export Solution
         uses: microsoft/powerplatform-actions/export-solution@v1
         with:
           environment-url: 'https://org643d7b2c.crm12.dynamics.com'
           user-name: 'nicoise.nkounkou@edu.igensia.com'
           password-secret: ${{ secrets.PASSWORD }}
-          solution-name: 'aSolution'
+          solution-name: 'aSolution'  # ⚠️ à remplacer par le nom logique exact de ta solution Power Platform
           solution-output-file: 'aSolution.zip'
           working-directory: 'out'
 
+      # 6️⃣ Décompresse la solution exportée
       - name: Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
-          solution-file: 'out/aSolution.zip'              # ✅ corrigé (pas aSolution1.zip)
-          solution-folder: 'out/solutions/solution-one'   # ✅ pas d’espace dans les chemins
+          solution-file: 'out/aSolution.zip'
+          solution-folder: 'out/solutions/solution-one'
           solution-type: 'Unmanaged'
           overwrite-files: true
 
+      # 7️⃣ Publie la solution dans l’environnement
       - name: Publish Solution
         uses: microsoft/powerplatform-actions/publish-solution@v1
         with:
@@ -46,6 +68,7 @@ jobs:
           user-name: 'nicoise.nkounkou@edu.igensia.com'
           password-secret: ${{ secrets.PASSWORD }}
 
+      # 8️⃣ Prépare les changements pour le commit
       - name: Prepare solution changes for check-in into source control
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
