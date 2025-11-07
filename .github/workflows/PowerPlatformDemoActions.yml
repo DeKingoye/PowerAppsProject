@@ -11,15 +11,15 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # Étape 1 : Clone du dépôt
+      # 1️⃣ Clone du dépôt
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Étape 2 : Message de confirmation
+      # 2️⃣ Message de démarrage
       - name: Hello from Yann's Runner 👋
         run: echo "✅ Workflow démarré sur le runner local de Yann !"
 
-      # Étape 3 : Installation du Power Platform CLI via winget
+      # 3️⃣ Installation du Power Platform CLI
       - name: Install Power Platform CLI
         shell: powershell
         run: |
@@ -41,18 +41,18 @@ jobs:
             exit 1
           }
 
-      # Étape 4 : Authentification Power Platform
+      # 4️⃣ Authentification Power Platform
       - name: Authenticate to Power Platform
         shell: powershell
         env:
           PASSWORD: ${{ secrets.PASSWORD }}
         run: |
           Write-Host "🔐 Authenticating..."
-          & "$env:PAC_PATH" auth clear
-          & "$env:PAC_PATH" auth create --url "https://org643d7b2c.crm12.dynamics.com" --username "nicoise.nkounkou@edu.igensia.com" --password "$env:PASSWORD"
-          & "$env:PAC_PATH" auth list
+          & $env:PAC_PATH auth clear
+          & $env:PAC_PATH auth create --url "https://org643d7b2c.crm12.dynamics.com" --username "nicoise.nkounkou@edu.igensia.com" --password "$env:PASSWORD"
+          & $env:PAC_PATH auth list
 
-      # Étape 5 : Export de la solution
+      # 5️⃣ Export de la solution
       - name: Export Solution
         uses: microsoft/powerplatform-actions/export-solution@v1
         with:
@@ -63,7 +63,7 @@ jobs:
           solution-output-file: 'aSolution.zip'
           working-directory: 'out'
 
-      # Étape 6 : Décompactage
+      # 6️⃣ Décompactage
       - name: Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
@@ -72,7 +72,7 @@ jobs:
           solution-type: 'Unmanaged'
           overwrite-files: true
 
-      # Étape 7 : Publication
+      # 7️⃣ Publication
       - name: Publish Solution
         uses: microsoft/powerplatform-actions/publish-solution@v1
         with:
@@ -80,7 +80,7 @@ jobs:
           user-name: 'nicoise.nkounkou@edu.igensia.com'
           password-secret: ${{ secrets.PASSWORD }}
 
-      # Étape 8 : Préparation du commit
+      # 8️⃣ Commit des modifications
       - name: Prepare solution changes for check-in into source control
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
