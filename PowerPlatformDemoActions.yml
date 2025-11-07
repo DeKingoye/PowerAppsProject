@@ -17,8 +17,8 @@ jobs:
       - name: Check environment info
         shell: powershell
         run: |
-          systeminfo | find "OS"
-          $PSVersionTable.PSVersion
+          Write-Host "🧠 Runner OS:" (Get-CimInstance Win32_OperatingSystem).Caption
+          Write-Host "🧩 PowerShell version:" $PSVersionTable.PSVersion
 
       - name: Install Power Platform CLI
         shell: powershell
