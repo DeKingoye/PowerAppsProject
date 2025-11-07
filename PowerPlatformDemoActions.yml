@@ -19,14 +19,14 @@ jobs:
 
       - name: 🔧 Force PAC path for self-hosted runner
         run: |
-          Write-Host "Setting PAC_PATH to local installation..."
-          echo "PAC_PATH=C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\pac.cmd" >> $env:GITHUB_ENV
+          Write-Host "Setting PAC_PATH to local pac.exe..."
+          echo "PAC_PATH=C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\tools\pac.exe" >> $env:GITHUB_ENV
         shell: pwsh
 
-      - name: 🔐 Check PAC authentication
+      - name: 🔍 Verify PAC installation
         run: |
-          Write-Host "🔍 Vérification de l'authentification existante..."
-          & $env:PAC_PATH auth list
+          Write-Host "PAC path: $env:PAC_PATH"
+          & $env:PAC_PATH --version
         shell: pwsh
 
       - name: 📦 Export Solution
@@ -40,7 +40,7 @@ jobs:
           working-directory: 'out'
         env:
           POWERPLATFORMTOOLS_PACINSTALLED: true
-          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\pac.cmd
+          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\tools\pac.exe
 
       - name: 📂 Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
@@ -50,7 +50,7 @@ jobs:
           solution-type: 'Unmanaged'
           overwrite-files: true
         env:
-          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\pac.cmd
+          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\tools\pac.exe
 
       - name: 🚀 Publish Solution
         uses: microsoft/powerplatform-actions/publish-solution@v1
@@ -59,7 +59,7 @@ jobs:
           user-name: 'nicoise.nkounkou@edu.igensia.com'
           password-secret: ${{ secrets.PASSWORD }}
         env:
-          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\pac.cmd
+          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\tools\pac.exe
 
       - name: 🧾 Commit solution changes
         uses: microsoft/powerplatform-actions/branch-solution@v1
