@@ -29,9 +29,9 @@ jobs:
           $pac = (Get-ChildItem -Path "C:\" -Filter "pac.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
           if ($pac) {
             Write-Host "✅ PAC found at: $pac"
-            & $pac --version
             $env:PAC_PATH = $pac
             echo "PAC_PATH=$pac" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            & $pac version
           } else {
             Write-Error "❌ PAC not found anywhere on the system."
           }
@@ -39,7 +39,7 @@ jobs:
       - name: Authenticate to Power Platform
         shell: powershell
         run: |
-          Write-Host "Authenticating to Power Platform..."
+          Write-Host "🔐 Auth to Power Platform..."
           & "$env:PAC_PATH" auth clear
           & "$env:PAC_PATH" auth create --url https://org643d7b2c.crm12.dynamics.com --username "nicoise.nkounkou@edu.igensia.com" --password $env:PASSWORD
           & "$env:PAC_PATH" auth list
