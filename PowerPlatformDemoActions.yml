@@ -8,37 +8,40 @@ on:
 
 jobs:
   build:
-    runs-on: self-hosted  # ton runner Windows local
+    runs-on: self-hosted
 
     steps:
-      # Étape 1 : Cloner le dépôt
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      # Étape 2 : Installer le Power Platform CLI (actions-install)
       - name: ⚙️ Install Power Platform Tools
         uses: microsoft/powerplatform-actions/actions-install@v1
 
-      # Étape 3 : Authentification (basée sur ton profil MFA local)
-      - name: 🔐 Verify local authentication profile
+      - name: 🔧 Force PAC path for self-hosted runner
         run: |
-          Write-Host "Vérification des profils PAC locaux..."
-          $pac = "C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\pac.cmd"
-          & $pac auth list
+          Write-Host "Setting PAC_PATH to local installation..."
+          echo "PAC_PATH=C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\pac.cmd" >> $env:GITHUB_ENV
         shell: pwsh
 
-      # Étape 4 : Exporter la solution
+      - name: 🔐 Check PAC authentication
+        run: |
+          Write-Host "🔍 Vérification de l'authentification existante..."
+          & $env:PAC_PATH auth list
+        shell: pwsh
+
       - name: 📦 Export Solution
         uses: microsoft/powerplatform-actions/export-solution@v1
         with:
           environment-url: 'https://org643d7b2c.crm12.dynamics.com'
           user-name: 'nicoise.nkounkou@edu.igensia.com'
-          password-secret: ${{ secrets.PASSWORD }} # gardé pour compatibilité, même si le profil MFA est prioritaire
+          password-secret: ${{ secrets.PASSWORD }}
           solution-name: 'aSolution'
           solution-output-file: 'aSolution.zip'
           working-directory: 'out'
+        env:
+          POWERPLATFORMTOOLS_PACINSTALLED: true
+          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\pac.cmd
 
-      # Étape 5 : Décompresser la solution
       - name: 📂 Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
@@ -46,17 +49,19 @@ jobs:
           solution-folder: 'out/solutions/solution-one'
           solution-type: 'Unmanaged'
           overwrite-files: true
+        env:
+          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\pac.cmd
 
-      # Étape 6 : Publier la solution
       - name: 🚀 Publish Solution
         uses: microsoft/powerplatform-actions/publish-solution@v1
         with:
           environment-url: 'https://org643d7b2c.crm12.dynamics.com'
           user-name: 'nicoise.nkounkou@edu.igensia.com'
           password-secret: ${{ secrets.PASSWORD }}
+        env:
+          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\pac.cmd
 
-      # Étape 7 : Commit des changements
-      - name: 🧾 Commit changes to repository
+      - name: 🧾 Commit solution changes
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
           solution-folder: 'out/solutions/solution-one'
