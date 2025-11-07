@@ -8,46 +8,18 @@ on:
 
 jobs:
   build:
+    # ✅ Microsoft recommande Windows (et ton runner self-hosted est Windows)
     runs-on: self-hosted
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Hello from Yann's Runner 👋
-        run: echo "✅ Workflow démarré sur le runner local de Yann !"
+      # ✅ Étape officielle d’installation des Power Platform Tools
+      - name: Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
 
-      - name: Install Power Platform CLI
-        shell: powershell
-        run: |
-          Write-Host "Installing Power Platform CLI..."
-          $cliPath = "$env:USERPROFILE\.nuget\packages\microsoft.powerapps.cli\1.50.1\tools\pac.exe"
-
-          if (-Not (Test-Path $cliPath)) {
-            Write-Host "Downloading and installing Power Platform CLI via winget..."
-            winget install --id Microsoft.PowerAppsCLI -e --source msstore --accept-package-agreements --accept-source-agreements
-          } else {
-            Write-Host "Power Platform CLI already installed at $cliPath"
-          }
-
-          if (Test-Path $cliPath) {
-            Write-Host "✅ PAC found at: $cliPath"
-            echo "PAC_PATH=$cliPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          } else {
-            Write-Error "❌ PAC not found after installation."
-            exit 1
-          }
-
-      - name: Authenticate to Power Platform
-        shell: powershell
-        env:
-          PASSWORD: ${{ secrets.PASSWORD }}
-        run: |
-          Write-Host "🔐 Authenticating..."
-          & $env:PAC_PATH auth clear
-          & $env:PAC_PATH auth create --url "https://org643d7b2c.crm12.dynamics.com" --username "nicoise.nkounkou@edu.igensia.com" --password $env:PASSWORD
-          & $env:PAC_PATH auth list
-
+      # ✅ Export de la solution depuis ton environnement Power Platform
       - name: Export Solution
         uses: microsoft/powerplatform-actions/export-solution@v1
         with:
@@ -58,6 +30,7 @@ jobs:
           solution-output-file: 'aSolution.zip'
           working-directory: 'out'
 
+      # ✅ Décompactage (Unpack) de la solution pour Git
       - name: Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
@@ -66,6 +39,7 @@ jobs:
           solution-type: 'Unmanaged'
           overwrite-files: true
 
+      # ✅ Publication de la solution dans ton environnement
       - name: Publish Solution
         uses: microsoft/powerplatform-actions/publish-solution@v1
         with:
@@ -73,6 +47,7 @@ jobs:
           user-name: 'nicoise.nkounkou@edu.igensia.com'
           password-secret: ${{ secrets.PASSWORD }}
 
+      # ✅ Commit automatique des modifications dans ton dépôt GitHub
       - name: Prepare solution changes for check-in into source control
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
