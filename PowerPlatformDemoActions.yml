@@ -8,20 +8,39 @@ on:
 
 jobs:
   build:
-    # ✅ Microsoft recommande Windows (et ton runner self-hosted est Windows)
     runs-on: self-hosted
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ✅ Étape officielle d’installation des Power Platform Tools
-      - name: Install Power Platform Tools
+      - name: Confirm PowerShell 7
+        run: pwsh -v
+
+      - name: Locate Power Platform CLI
+        id: find_pac
+        shell: pwsh
+        run: |
+          $pacPath = "$env:USERPROFILE\.nuget\packages\microsoft.powerapps.cli\1.50.1\tools\pac.exe"
+          if (-Not (Test-Path $pacPath)) {
+            Write-Error "❌ pac.exe introuvable à $pacPath"
+            exit 1
+          }
+          Write-Host "✅ pac.exe trouvé à $pacPath"
+          echo "PAC_PATH=$pacPath" >> $env:GITHUB_ENV
+
+      - name: Set environment variable for Power Platform Tools
+        run: echo "POWERPLATFORMTOOLS_PACPATH=$env:PAC_PATH" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Install Power Platform Actions
         uses: microsoft/powerplatform-actions/actions-install@v1
 
-      # ✅ Export de la solution depuis ton environnement Power Platform
       - name: Export Solution
         uses: microsoft/powerplatform-actions/export-solution@v1
+        env:
+          POWERPLATFORMTOOLS_PACPATH: ${{ env.PAC_PATH }}
+          POWERPLATFORMTOOLS_PACINSTALLED: true
         with:
           environment-url: 'https://org643d7b2c.crm12.dynamics.com'
           user-name: 'nicoise.nkounkou@edu.igensia.com'
@@ -30,7 +49,6 @@ jobs:
           solution-output-file: 'aSolution.zip'
           working-directory: 'out'
 
-      # ✅ Décompactage (Unpack) de la solution pour Git
       - name: Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
@@ -39,15 +57,16 @@ jobs:
           solution-type: 'Unmanaged'
           overwrite-files: true
 
-      # ✅ Publication de la solution dans ton environnement
       - name: Publish Solution
         uses: microsoft/powerplatform-actions/publish-solution@v1
+        env:
+          POWERPLATFORMTOOLS_PACPATH: ${{ env.PAC_PATH }}
+          POWERPLATFORMTOOLS_PACINSTALLED: true
         with:
           environment-url: 'https://org643d7b2c.crm12.dynamics.com'
           user-name: 'nicoise.nkounkou@edu.igensia.com'
           password-secret: ${{ secrets.PASSWORD }}
 
-      # ✅ Commit automatique des modifications dans ton dépôt GitHub
       - name: Prepare solution changes for check-in into source control
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
