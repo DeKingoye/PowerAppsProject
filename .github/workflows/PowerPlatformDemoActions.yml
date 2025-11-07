@@ -8,30 +8,27 @@ on:
 
 jobs:
   build:
-    runs-on: self-hosted  # ton runner local
+    runs-on: self-hosted
 
     steps:
-      # 1️⃣ Récupérer ton dépôt
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Vérifier la version de Windows et PowerShell
       - name: Check environment info
+        shell: powershell
         run: |
           systeminfo | find "OS"
-          pwsh -v
+          $PSVersionTable.PSVersion
 
-      # 3️⃣ Installer la Power Platform CLI via winget
       - name: Install Power Platform CLI
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "Installing Power Platform CLI..."
           winget install --id Microsoft.PowerAppsCLI -e --accept-source-agreements --accept-package-agreements
           pac --version
 
-      # 4️⃣ Authentification à ton environnement Power Platform
       - name: Authenticate to Power Platform
-        shell: pwsh
+        shell: powershell
         run: |
           pac auth clear
           pac auth create --url https://org643d7b2c.crm12.dynamics.com --username "nicoise.nkounkou@edu.igensia.com" --password $env:PASSWORD
@@ -39,35 +36,31 @@ jobs:
         env:
           PASSWORD: ${{ secrets.PASSWORD }}
 
-      # 5️⃣ Exporter ta solution
       - name: Export Solution
-        shell: pwsh
+        shell: powershell
         run: |
-          mkdir out
+          mkdir out -Force
           pac solution export `
             --name aSolution `
-            --path out/aSolution.zip `
+            --path out\aSolution.zip `
             --environment https://org643d7b2c.crm12.dynamics.com
         env:
           PASSWORD: ${{ secrets.PASSWORD }}
 
-      # 6️⃣ Décompresser la solution
       - name: Unpack Solution
-        shell: pwsh
+        shell: powershell
         run: |
           pac solution unpack `
-            --zipfile out/aSolution.zip `
-            --folder out/solutions/solution-one `
+            --zipfile out\aSolution.zip `
+            --folder out\solutions\solution-one `
             --allowDelete true `
             --overwrite true
 
-      # 7️⃣ Publier la solution
       - name: Publish Solution
-        shell: pwsh
+        shell: powershell
         run: |
           pac solution publish --environment https://org643d7b2c.crm12.dynamics.com
 
-      # 8️⃣ Sauvegarde du code dans GitHub
       - name: Commit solution to source control
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
