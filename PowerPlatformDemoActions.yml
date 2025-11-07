@@ -1,4 +1,4 @@
-name: Power Platform CI/CD (Local Runner)
+name: Power Platform Export and Publish
 
 on:
   workflow_dispatch:
@@ -8,75 +8,57 @@ on:
 
 jobs:
   build:
-    runs-on: self-hosted
+    runs-on: self-hosted  # ton runner Windows local
 
     steps:
-      # 🧱 Étape 1 : Cloner le dépôt
-      - name: Checkout repository
+      # Étape 1 : Cloner le dépôt
+      - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      # ⚙️ Étape 2 : Vérifier et trouver le CLI Power Platform
-      - name: Locate Power Platform CLI
-        shell: pwsh
-        run: |
-          Write-Host "🔍 Searching for pac.exe..."
-          $pacPath = "$env:LOCALAPPDATA\Microsoft\PowerAppsCLI\pac.cmd"
-          if (-Not (Test-Path $pacPath)) {
-            Write-Host "⚠️ PAC not found. Installing Power Platform CLI..."
-            winget install --id Microsoft.PowerAppsCLI -e --accept-package-agreements --accept-source-agreements
-          } else {
-            Write-Host "✅ PAC found at: $pacPath"
-          }
-          echo "PAC_PATH=$pacPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+      # Étape 2 : Installer le Power Platform CLI (actions-install)
+      - name: ⚙️ Install Power Platform Tools
+        uses: microsoft/powerplatform-actions/actions-install@v1
 
-      # 🔐 Étape 3 : Authentification (profil local requis)
-      - name: Authenticate to Power Platform
-        shell: pwsh
+      # Étape 3 : Authentification (basée sur ton profil MFA local)
+      - name: 🔐 Verify local authentication profile
         run: |
-          Write-Host "🔐 Authenticating with existing PAC profile..."
-          & $env:PAC_PATH auth list
-        continue-on-error: true
+          Write-Host "Vérification des profils PAC locaux..."
+          $pac = "C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\pac.cmd"
+          & $pac auth list
+        shell: pwsh
 
-      # 📦 Étape 4 : Export de la solution
-      - name: Export Solution
+      # Étape 4 : Exporter la solution
+      - name: 📦 Export Solution
         uses: microsoft/powerplatform-actions/export-solution@v1
         with:
           environment-url: 'https://org643d7b2c.crm12.dynamics.com'
           user-name: 'nicoise.nkounkou@edu.igensia.com'
-          password-secret: ${{ secrets.PASSWORD }}
+          password-secret: ${{ secrets.PASSWORD }} # gardé pour compatibilité, même si le profil MFA est prioritaire
           solution-name: 'aSolution'
           solution-output-file: 'aSolution.zip'
           working-directory: 'out'
 
-      # 🧩 Étape 5 : Décompactage de la solution
-      - name: Unpack Solution
+      # Étape 5 : Décompresser la solution
+      - name: 📂 Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
           solution-file: 'out/aSolution.zip'
           solution-folder: 'out/solutions/solution-one'
           solution-type: 'Unmanaged'
-          allowWrite: true
-          clobber: true
+          overwrite-files: true
 
-      # 🚀 Étape 6 : Publication de la solution
-      - name: Publish Solution
+      # Étape 6 : Publier la solution
+      - name: 🚀 Publish Solution
         uses: microsoft/powerplatform-actions/publish-solution@v1
         with:
           environment-url: 'https://org643d7b2c.crm12.dynamics.com'
           user-name: 'nicoise.nkounkou@edu.igensia.com'
           password-secret: ${{ secrets.PASSWORD }}
 
-      # 🪄 Étape 7 : Commit Git si des modifications existent
-      - name: Commit solution changes
-        shell: pwsh
-        run: |
-          if (Test-Path "out/solutions/solution-one") {
-            Write-Host "💾 Preparing commit..."
-            git config user.name  "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add out/solutions/solution-one
-            git diff --cached --quiet || git commit -m "Update solution-one via CI"
-            git push origin master
-          } else {
-            Write-Host "✅ Rien à committer (aucun changement détecté)."
-          }
+      # Étape 7 : Commit des changements
+      - name: 🧾 Commit changes to repository
+        uses: microsoft/powerplatform-actions/branch-solution@v1
+        with:
+          solution-folder: 'out/solutions/solution-one'
+          solution-target-folder: 'src/solutions/solution1'
+          token: ${{ secrets.GIT_TOKEN }}
