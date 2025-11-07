@@ -8,59 +8,61 @@ on:
 
 jobs:
   build:
-    # Ton runner local
-    runs-on: self-hosted
+    runs-on: self-hosted  # ✅ ton runner local
 
     steps:
-      # Clone le dépôt
+      # 🧩 Étape 1 : Cloner le dépôt
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Installation de Node.js (nécessaire pour npm et pac CLI)
+      # 🧩 Étape 2 : Installer Node.js 18 (pour compatibilité CLI)
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      # Installation manuelle du CLI Power Platform
-      - name: Install Power Platform CLI (pac)
+      # 🧩 Étape 3 : Installer la Power Platform CLI officielle
+      - name: Install Microsoft Power Platform CLI
         run: |
-          npm install -g pac
+          npm install -g @microsoft/powerplatform-cli@latest
           pac --version
 
-      # Installation de l’action Microsoft
-      - name: Install Power Platform Tools
-        uses: microsoft/powerplatform-actions/actions-install@v1
+      # 🧩 Étape 4 : Authentifier dans Power Platform (vérification)
+      - name: Check Power Platform Authentication
+        run: |
+          pac auth clear
+          pac auth create --url https://org643d7b2c.crm12.dynamics.com --username nicoise.nkounkou@edu.igensia.com --password $env:PASSWORD
+          pac auth list
+        env:
+          PASSWORD: ${{ secrets.PASSWORD }}
 
-      # Export de la solution
+      # 🧩 Étape 5 : Exporter la solution
       - name: Export Solution
-        uses: microsoft/powerplatform-actions/export-solution@v1
-        with:
-          environment-url: 'https://org643d7b2c.crm12.dynamics.com'
-          user-name: 'nicoise.nkounkou@edu.igensia.com'
-          password-secret: ${{ secrets.PASSWORD }}
-          solution-name: 'aSolution'
-          solution-output-file: 'aSolution.zip'
-          working-directory: 'out'
+        run: |
+          mkdir out
+          pac solution export `
+            --path out/aSolution.zip `
+            --name aSolution `
+            --environment https://org643d7b2c.crm12.dynamics.com
+        env:
+          PASSWORD: ${{ secrets.PASSWORD }}
 
-      # Décompactage de la solution
+      # 🧩 Étape 6 : Décompresser la solution
       - name: Unpack Solution
-        uses: microsoft/powerplatform-actions/unpack-solution@v1
-        with:
-          solution-file: 'out/aSolution.zip'
-          solution-folder: 'out/solutions/solution-one'
-          solution-type: 'Unmanaged'
-          overwrite-files: true
+        run: |
+          pac solution unpack `
+            --zipfile out/aSolution.zip `
+            --folder out/solutions/solution-one `
+            --allowDelete true `
+            --overwrite true
 
-      # Publication
+      # 🧩 Étape 7 : Publier la solution
       - name: Publish Solution
-        uses: microsoft/powerplatform-actions/publish-solution@v1
-        with:
-          environment-url: 'https://org643d7b2c.crm12.dynamics.com'
-          user-name: 'nicoise.nkounkou@edu.igensia.com'
-          password-secret: ${{ secrets.PASSWORD }}
+        run: |
+          pac solution publish `
+            --environment https://org643d7b2c.crm12.dynamics.com
 
-      # Commit dans le dépôt
+      # 🧩 Étape 8 : Préparer les changements pour commit
       - name: Prepare solution changes for check-in into source control
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
