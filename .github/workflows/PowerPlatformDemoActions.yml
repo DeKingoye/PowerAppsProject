@@ -1,4 +1,4 @@
-name: Power Platform Demo Actions
+name: Power Platform Demo Actions (Direct PAC)
 
 on:
   workflow_dispatch:
@@ -14,62 +14,120 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Confirm PowerShell 7
-        run: pwsh -v
+      - name: Environment info
+        shell: pwsh
+        run: |
+          Write-Host "🧠 OS:" (Get-CimInstance Win32_OperatingSystem).Caption
+          Write-Host "💻 PowerShell:" $PSVersionTable.PSVersion
 
-      - name: Locate Power Platform CLI
+      # 1) Trouver pac.exe de manière fiable
+      - name: Locate pac.exe
         id: find_pac
         shell: pwsh
         run: |
-          $pacPath = "$env:USERPROFILE\.nuget\packages\microsoft.powerapps.cli\1.50.1\tools\pac.exe"
-          if (-Not (Test-Path $pacPath)) {
-            Write-Error "❌ pac.exe introuvable à $pacPath"
+          function Find-PacPath {
+            # 1. Si 'pac' est dans le PATH (App Execution Alias / MSI), on récupère sa cible réelle
+            $cmd = Get-Command pac -ErrorAction SilentlyContinue
+            if ($cmd -and $cmd.Source) {
+              return $cmd.Source
+            }
+
+            # 2. Emplacements classiques (MSI / winget / NuGet)
+            $candidates = @(
+              "$env:ProgramFiles (x86)\Microsoft Power Platform CLI\pac.exe",
+              "$env:ProgramFiles\Microsoft Power Platform CLI\pac.exe",
+              "$env:LOCALAPPDATA\Microsoft\PowerAppsCLI\pac.exe",
+              "$env:USERPROFILE\.nuget\packages\microsoft.powerapps.cli\**\tools\pac.exe"
+            )
+
+            foreach ($c in $candidates) {
+              $expanded = [Environment]::ExpandEnvironmentVariables($c)
+              $found = Get-ChildItem -Path $expanded -File -ErrorAction SilentlyContinue
+              if ($found) { return $found[0].FullName }
+            }
+
+            # 3. Recherche ciblée sur C:\ (dernière chance, plus lente)
+            $foundWide = Get-ChildItem -Path 'C:\' -Filter 'pac.exe' -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($foundWide) { return $foundWide.FullName }
+
+            return $null
+          }
+
+          $pac = Find-PacPath
+          if (-not $pac) {
+            Write-Host "❌ pac.exe introuvable — tentative d’installation via winget (MSStore)…"
+            winget install --id Microsoft.PowerAppsCLI -e --accept-package-agreements --accept-source-agreements
+            Start-Sleep -Seconds 5
+            $pac = Find-PacPath
+          }
+
+          if (-not $pac) {
+            Write-Error "Impossible de localiser pac.exe après installation."
             exit 1
           }
-          Write-Host "✅ pac.exe trouvé à $pacPath"
-          echo "PAC_PATH=$pacPath" >> $env:GITHUB_ENV
 
-      - name: Set environment variable for Power Platform Tools
-        run: echo "POWERPLATFORMTOOLS_PACPATH=$env:PAC_PATH" >> $env:GITHUB_ENV
+          Write-Host "✅ pac.exe : $pac"
+          "PAC_PATH=$pac" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      # 2) Auth Power Platform (sans guillemets autour du password)
+      - name: Authenticate to Power Platform
         shell: pwsh
-
-      - name: Install Power Platform Actions
-        uses: microsoft/powerplatform-actions/actions-install@v1
-
-      - name: Export Solution
-        uses: microsoft/powerplatform-actions/export-solution@v1
         env:
-          POWERPLATFORMTOOLS_PACPATH: ${{ env.PAC_PATH }}
-          POWERPLATFORMTOOLS_PACINSTALLED: true
-        with:
-          environment-url: 'https://org643d7b2c.crm12.dynamics.com'
-          user-name: 'nicoise.nkounkou@edu.igensia.com'
-          password-secret: ${{ secrets.PASSWORD }}
-          solution-name: 'aSolution'
-          solution-output-file: 'aSolution.zip'
-          working-directory: 'out'
+          PASSWORD: ${{ secrets.PASSWORD }}
+        run: |
+          $pac = $env:PAC_PATH
+          Write-Host "🔐 Auth with PAC at $pac"
+          & $pac auth clear
+          & $pac auth create --url "https://org643d7b2c.crm12.dynamics.com" --username "nicoise.nkounkou@edu.igensia.com" --password $env:PASSWORD
+          & $pac auth list
+          # test de connectivité simple
+          & $pac env who
 
-      - name: Unpack Solution
-        uses: microsoft/powerplatform-actions/unpack-solution@v1
-        with:
-          solution-file: 'out/aSolution.zip'
-          solution-folder: 'out/solutions/solution-one'
-          solution-type: 'Unmanaged'
-          overwrite-files: true
+      # 3) Export solution → out\aSolution.zip
+      - name: Export solution (pac)
+        shell: pwsh
+        run: |
+          $pac = $env:PAC_PATH
+          New-Item -ItemType Directory -Path out -Force | Out-Null
+          Write-Host "📦 Exporting solution 'aSolution'…"
+          & $pac solution export `
+            --name "aSolution" `
+            --path "out\aSolution.zip" `
+            --environment "https://org643d7b2c.crm12.dynamics.com"
 
-      - name: Publish Solution
-        uses: microsoft/powerplatform-actions/publish-solution@v1
+      # 4) Unpack solution → out\solutions\solution-one
+      - name: Unpack solution (pac)
+        shell: pwsh
+        run: |
+          $pac = $env:PAC_PATH
+          Write-Host "📂 Unpacking solution to out\solutions\solution-one…"
+          & $pac solution unpack `
+            --zipfile "out\aSolution.zip" `
+            --folder "out\solutions\solution-one" `
+            --allowDelete true `
+            --overwrite true
+
+      # 5) Publish solution
+      - name: Publish solution (pac)
+        shell: pwsh
+        run: |
+          $pac = $env:PAC_PATH
+          Write-Host "🚀 Publishing solution…"
+          & $pac solution publish --environment "https://org643d7b2c.crm12.dynamics.com"
+
+      # 6) Commit des modifs dans le repo
+      - name: Commit solution to repo
+        shell: pwsh
         env:
-          POWERPLATFORMTOOLS_PACPATH: ${{ env.PAC_PATH }}
-          POWERPLATFORMTOOLS_PACINSTALLED: true
-        with:
-          environment-url: 'https://org643d7b2c.crm12.dynamics.com'
-          user-name: 'nicoise.nkounkou@edu.igensia.com'
-          password-secret: ${{ secrets.PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GIT_TOKEN }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Prepare solution changes for check-in into source control
-        uses: microsoft/powerplatform-actions/branch-solution@v1
-        with:
-          solution-folder: 'out/solutions/solution-one'
-          solution-target-folder: 'src/solutions/solution1'
-          token: ${{ secrets.GIT_TOKEN }}
+          git add "out/solutions/solution-one" -A
+          if ((git status --porcelain) -ne $null) {
+            git commit -m "chore: export & unpack solution-one"
+            git push
+          } else {
+            Write-Host "✅ Rien à committer."
+          }
