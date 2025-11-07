@@ -42,13 +42,23 @@
 name: Power Platform Demo Actions
 
 on:
-  workflow_dispatch:  # 👈 permet de lancer manuellement depuis l’onglet Actions
+  workflow_dispatch:  # 👈 permet de le lancer manuellement depuis l’onglet Actions
+  push:
+    branches:
+      - master          # 👈 (optionnel) permet de lancer automatiquement sur un push vers main
 
 jobs:
   build:
-    runs-on: windows-latest   # alternate runner OS is: ubuntu-latest
+    # ⚠️ Utilise ton runner local (pas celui de GitHub)
+    runs-on: self-hosted
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Hello from Yann's Runner 👋
+        run: echo "✅ Workflow démarré sur le runner local de Yann !"
+
       - name: Install Power Platform Tools
         uses: microsoft/powerplatform-actions/actions-install@v1
 
@@ -58,15 +68,15 @@ jobs:
           environment-url: 'https://org643d7b2c.crm12.dynamics.com'
           user-name: 'nicoise.nkounkou@edu.igensia.com'
           password-secret: ${{ secrets.PASSWORD }}
-          solution-name: aSolution
+          solution-name: 'aSolution'
           solution-output-file: 'aSolution.zip'
           working-directory: 'out'
 
       - name: Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
-          solution-file: 'out/aSolution1.zip'
-          solution-folder: 'out/solutions/solution one'
+          solution-file: 'out/aSolution.zip'              # ✅ corrigé (pas aSolution1.zip)
+          solution-folder: 'out/solutions/solution-one'   # ✅ pas d’espace dans les chemins
           solution-type: 'Unmanaged'
           overwrite-files: true
 
@@ -80,7 +90,6 @@ jobs:
       - name: Prepare solution changes for check-in into source control
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
-          solution-folder: 'out/solutions/solution one'
+          solution-folder: 'out/solutions/solution-one'
           solution-target-folder: 'src/solutions/solution1'
           token: ${{ secrets.GIT_TOKEN }}
-
