@@ -17,52 +17,52 @@ jobs:
       - name: Check environment info
         shell: powershell
         run: |
-          Write-Host "🧠 Runner OS:" (Get-CimInstance Win32_OperatingSystem).Caption
-          Write-Host "🧩 PowerShell version:" $PSVersionTable.PSVersion
+          Write-Host "🧠 OS:" (Get-CimInstance Win32_OperatingSystem).Caption
+          Write-Host "💻 PowerShell version:" $PSVersionTable.PSVersion
 
       - name: Install Power Platform CLI via Winget
         shell: powershell
         run: |
           Write-Host "Installing Power Platform CLI..."
           winget install --id Microsoft.PowerAppsCLI -e --accept-source-agreements --accept-package-agreements
-          $pacPath = "C:\Program Files (x86)\Microsoft Power Platform CLI\pac.exe"
-          if (Test-Path $pacPath) {
-            Write-Host "✅ PAC installed successfully at $pacPath"
-            & $pacPath --version
+          Write-Host "Searching pac.exe..."
+          $pac = (Get-ChildItem -Path "C:\" -Filter "pac.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+          if ($pac) {
+            Write-Host "✅ PAC found at: $pac"
+            & $pac --version
+            $env:PAC_PATH = $pac
+            echo "PAC_PATH=$pac" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           } else {
-            Write-Error "❌ PAC not found after installation."
+            Write-Error "❌ PAC not found anywhere on the system."
           }
 
       - name: Authenticate to Power Platform
         shell: powershell
         run: |
-          $pac = "C:\Program Files (x86)\Microsoft Power Platform CLI\pac.exe"
-          & $pac auth clear
-          & $pac auth create --url https://org643d7b2c.crm12.dynamics.com --username "nicoise.nkounkou@edu.igensia.com" --password $env:PASSWORD
-          & $pac auth list
+          Write-Host "Authenticating to Power Platform..."
+          & "$env:PAC_PATH" auth clear
+          & "$env:PAC_PATH" auth create --url https://org643d7b2c.crm12.dynamics.com --username "nicoise.nkounkou@edu.igensia.com" --password $env:PASSWORD
+          & "$env:PAC_PATH" auth list
         env:
           PASSWORD: ${{ secrets.PASSWORD }}
 
       - name: Export Solution
         shell: powershell
         run: |
-          $pac = "C:\Program Files (x86)\Microsoft Power Platform CLI\pac.exe"
           mkdir out -Force
-          & $pac solution export --name aSolution --path out\aSolution.zip --environment https://org643d7b2c.crm12.dynamics.com
+          & "$env:PAC_PATH" solution export --name aSolution --path out\aSolution.zip --environment https://org643d7b2c.crm12.dynamics.com
         env:
           PASSWORD: ${{ secrets.PASSWORD }}
 
       - name: Unpack Solution
         shell: powershell
         run: |
-          $pac = "C:\Program Files (x86)\Microsoft Power Platform CLI\pac.exe"
-          & $pac solution unpack --zipfile out\aSolution.zip --folder out\solutions\solution-one --allowDelete true --overwrite true
+          & "$env:PAC_PATH" solution unpack --zipfile out\aSolution.zip --folder out\solutions\solution-one --allowDelete true --overwrite true
 
       - name: Publish Solution
         shell: powershell
         run: |
-          $pac = "C:\Program Files (x86)\Microsoft Power Platform CLI\pac.exe"
-          & $pac solution publish --environment https://org643d7b2c.crm12.dynamics.com
+          & "$env:PAC_PATH" solution publish --environment https://org643d7b2c.crm12.dynamics.com
 
       - name: Commit solution to source control
         uses: microsoft/powerplatform-actions/branch-solution@v1
