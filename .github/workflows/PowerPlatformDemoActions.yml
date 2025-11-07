@@ -20,46 +20,49 @@ jobs:
           Write-Host "🧠 Runner OS:" (Get-CimInstance Win32_OperatingSystem).Caption
           Write-Host "🧩 PowerShell version:" $PSVersionTable.PSVersion
 
-      - name: Install Power Platform CLI
+      - name: Install Power Platform CLI via Winget
         shell: powershell
         run: |
           Write-Host "Installing Power Platform CLI..."
           winget install --id Microsoft.PowerAppsCLI -e --accept-source-agreements --accept-package-agreements
-          pac --version
+          $pacPath = "C:\Program Files (x86)\Microsoft Power Platform CLI\pac.exe"
+          if (Test-Path $pacPath) {
+            Write-Host "✅ PAC installed successfully at $pacPath"
+            & $pacPath --version
+          } else {
+            Write-Error "❌ PAC not found after installation."
+          }
 
       - name: Authenticate to Power Platform
         shell: powershell
         run: |
-          pac auth clear
-          pac auth create --url https://org643d7b2c.crm12.dynamics.com --username "nicoise.nkounkou@edu.igensia.com" --password $env:PASSWORD
-          pac auth list
+          $pac = "C:\Program Files (x86)\Microsoft Power Platform CLI\pac.exe"
+          & $pac auth clear
+          & $pac auth create --url https://org643d7b2c.crm12.dynamics.com --username "nicoise.nkounkou@edu.igensia.com" --password $env:PASSWORD
+          & $pac auth list
         env:
           PASSWORD: ${{ secrets.PASSWORD }}
 
       - name: Export Solution
         shell: powershell
         run: |
+          $pac = "C:\Program Files (x86)\Microsoft Power Platform CLI\pac.exe"
           mkdir out -Force
-          pac solution export `
-            --name aSolution `
-            --path out\aSolution.zip `
-            --environment https://org643d7b2c.crm12.dynamics.com
+          & $pac solution export --name aSolution --path out\aSolution.zip --environment https://org643d7b2c.crm12.dynamics.com
         env:
           PASSWORD: ${{ secrets.PASSWORD }}
 
       - name: Unpack Solution
         shell: powershell
         run: |
-          pac solution unpack `
-            --zipfile out\aSolution.zip `
-            --folder out\solutions\solution-one `
-            --allowDelete true `
-            --overwrite true
+          $pac = "C:\Program Files (x86)\Microsoft Power Platform CLI\pac.exe"
+          & $pac solution unpack --zipfile out\aSolution.zip --folder out\solutions\solution-one --allowDelete true --overwrite true
 
       - name: Publish Solution
         shell: powershell
         run: |
-          pac solution publish --environment https://org643d7b2c.crm12.dynamics.com
+          $pac = "C:\Program Files (x86)\Microsoft Power Platform CLI\pac.exe"
+          & $pac solution publish --environment https://org643d7b2c.crm12.dynamics.com
 
       - name: Commit solution to source control
         uses: microsoft/powerplatform-actions/branch-solution@v1
