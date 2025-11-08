@@ -14,29 +14,35 @@ jobs:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
+      # ✅ Étape pour s'assurer que NuGet est accessible dans le PATH
+      - name: 🧰 Add NuGet to PATH (self-hosted fix)
+        run: |
+          Write-Host "Adding nuget.exe to PATH..."
+          $nugetPath = "C:\Windows\System32"
+          $env:PATH = "$nugetPath;$env:PATH"
+          Write-Host "NuGet version check:"
+          nuget help
+        shell: pwsh
+
+      # ⚙️ Installation automatique des Power Platform Tools
       - name: ⚙️ Install Power Platform Tools
         uses: microsoft/powerplatform-actions/actions-install@v1
 
+      # ✅ Forcer le chemin du PAC CLI local (celui installé via dotnet)
       - name: 🔧 Force PAC path for self-hosted runner
         run: |
-          Write-Host "Setting PAC_PATH to local .dotnet pac.exe..."
+          Write-Host "Setting PAC_PATH to .dotnet global tools path..."
           echo "PAC_PATH=$env:USERPROFILE\.dotnet\tools\pac.exe" >> $env:GITHUB_ENV
         shell: pwsh
 
+      # Vérifier que pac.exe est bien trouvé
       - name: 🔍 Verify PAC installation
         run: |
           Write-Host "PAC path: $env:PAC_PATH"
-          & $env:PAC_PATH tool version
+          & $env:PAC_PATH help
         shell: pwsh
 
-      - name: 🔐 Authenticate with Power Platform
-        run: |
-          Write-Host "Authenticating to environment..."
-          & $env:PAC_PATH auth clear
-          & $env:PAC_PATH auth create --environment "https://org643d7b2c.crm12.dynamics.com" --username "nicoise.nkounkou@edu.igensia.com" --password "${{ secrets.PASSWORD }}"
-          & $env:PAC_PATH auth list
-        shell: pwsh
-
+      # 📦 Exporter la solution
       - name: 📦 Export Solution
         uses: microsoft/powerplatform-actions/export-solution@v1
         with:
@@ -50,6 +56,7 @@ jobs:
           POWERPLATFORMTOOLS_PACINSTALLED: true
           POWERPLATFORMTOOLS_PACPATH: ${{ env.PAC_PATH }}
 
+      # 📂 Décompresser la solution
       - name: 📂 Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
@@ -60,6 +67,7 @@ jobs:
         env:
           POWERPLATFORMTOOLS_PACPATH: ${{ env.PAC_PATH }}
 
+      # 🚀 Publier la solution
       - name: 🚀 Publish Solution
         uses: microsoft/powerplatform-actions/publish-solution@v1
         with:
@@ -69,6 +77,7 @@ jobs:
         env:
           POWERPLATFORMTOOLS_PACPATH: ${{ env.PAC_PATH }}
 
+      # 🧾 Commit des changements éventuels
       - name: 🧾 Commit solution changes
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
