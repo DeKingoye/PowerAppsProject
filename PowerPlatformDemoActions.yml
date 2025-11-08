@@ -14,56 +14,52 @@ jobs:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      - name: ⚙️ Install Power Platform Tools
-        uses: microsoft/powerplatform-actions/actions-install@v1
-
-      - name: 🔧 Force PAC path for self-hosted runner
+      - name: ⚙️ Set PAC global path
         run: |
-          Write-Host "Setting PAC_PATH to local pac.exe..."
-          echo "PAC_PATH=C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\tools\pac.exe" >> $env:GITHUB_ENV
+          Write-Host "Using global PAC path from .NET tools..."
+          echo "PAC_PATH=C:\Users\yannm\.dotnet\tools\pac.exe" >> $env:GITHUB_ENV
         shell: pwsh
 
       - name: 🔍 Verify PAC installation
         run: |
           Write-Host "PAC path: $env:PAC_PATH"
-          & $env:PAC_PATH --version
+          & $env:PAC_PATH version
+        shell: pwsh
+
+      - name: 🔐 Authenticate to Power Platform
+        run: |
+          & $env:PAC_PATH auth clear
+          & $env:PAC_PATH auth create --environment "https://org643d7b2c.crm12.dynamics.com" --username "nicoise.nkounkou@edu.igensia.com" --password "${{ secrets.PASSWORD }}"
+          & $env:PAC_PATH auth list
         shell: pwsh
 
       - name: 📦 Export Solution
-        uses: microsoft/powerplatform-actions/export-solution@v1
-        with:
-          environment-url: 'https://org643d7b2c.crm12.dynamics.com'
-          user-name: 'nicoise.nkounkou@edu.igensia.com'
-          password-secret: ${{ secrets.PASSWORD }}
-          solution-name: 'aSolution'
-          solution-output-file: 'aSolution.zip'
-          working-directory: 'out'
-        env:
-          POWERPLATFORMTOOLS_PACINSTALLED: true
-          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\tools\pac.exe
+        run: |
+          Write-Host "Exporting solution..."
+          & $env:PAC_PATH solution export --path "out\aSolution.zip" --name "aSolution" --managed false --overwrite
+        shell: pwsh
 
       - name: 📂 Unpack Solution
-        uses: microsoft/powerplatform-actions/unpack-solution@v1
-        with:
-          solution-file: 'out/aSolution.zip'
-          solution-folder: 'out/solutions/solution-one'
-          solution-type: 'Unmanaged'
-          overwrite-files: true
-        env:
-          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\tools\pac.exe
+        run: |
+          Write-Host "Unpacking solution..."
+          & $env:PAC_PATH solution unpack --zipfile "out\aSolution.zip" --folder "out\solutions\solution-one" --packagetype "Unmanaged" --clobber
+        shell: pwsh
 
       - name: 🚀 Publish Solution
-        uses: microsoft/powerplatform-actions/publish-solution@v1
-        with:
-          environment-url: 'https://org643d7b2c.crm12.dynamics.com'
-          user-name: 'nicoise.nkounkou@edu.igensia.com'
-          password-secret: ${{ secrets.PASSWORD }}
-        env:
-          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\AppData\Local\Microsoft\PowerAppsCLI\tools\pac.exe
+        run: |
+          Write-Host "Publishing solution..."
+          & $env:PAC_PATH solution publish
+        shell: pwsh
 
       - name: 🧾 Commit solution changes
-        uses: microsoft/powerplatform-actions/branch-solution@v1
-        with:
-          solution-folder: 'out/solutions/solution-one'
-          solution-target-folder: 'src/solutions/solution1'
-          token: ${{ secrets.GIT_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if (Test-Path "out/solutions/solution-one") {
+            git add out/solutions/solution-one
+            git commit -m "🔄 Update unpacked Power Platform solution"
+            git push origin master
+          } else {
+            Write-Host "✅ Nothing to commit."
+          }
+        shell: pwsh
