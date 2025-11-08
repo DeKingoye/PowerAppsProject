@@ -14,40 +14,47 @@ jobs:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      # ✅ Étape pour rendre NuGet accessible
+      # ✅ Vérifie que nuget est disponible
       - name: 🧰 Ensure NuGet is available
         run: |
-          Write-Host "Manually setting nuget.exe path..."
           $nugetPath = "C:\Windows\System32\nuget.exe"
           if (-Not (Test-Path $nugetPath)) {
-            Write-Host "nuget.exe not found, downloading..."
+            Write-Host "NuGet not found, downloading..."
             Invoke-WebRequest "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile $nugetPath
           }
-          Write-Host "Using nuget at: $nugetPath"
+          Write-Host "NuGet is ready at $nugetPath"
           & $nugetPath help
         shell: pwsh
 
-      # ⚙️ Installer Power Platform Tools avec le bon nuget.exe
-      - name: ⚙️ Install Power Platform Tools
+      # ✅ Vérifie et installe Power Platform CLI si manquant
+      - name: ⚙️ Ensure Power Platform CLI
+        run: |
+          $pacPath = "$env:USERPROFILE\.dotnet\tools\pac.exe"
+          if (-Not (Test-Path $pacPath)) {
+            Write-Host "PAC CLI not found, installing..."
+            dotnet tool install --global Microsoft.PowerApps.CLI.Tool
+          } else {
+            Write-Host "PAC CLI already installed at $pacPath"
+          }
+          Write-Host "PAC CLI available at: $pacPath"
+          & $pacPath help
+          echo "PAC_PATH=$pacPath" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      # ✅ Installe les outils Power Platform
+      - name: 🧱 Install Power Platform Tools
         uses: microsoft/powerplatform-actions/actions-install@v1
         env:
           NUGET_EXE_PATH: C:\Windows\System32\nuget.exe
 
-      # 🔧 Forcer le chemin PAC CLI (dotnet global tools)
-      - name: 🔧 Force PAC path for self-hosted runner
-        run: |
-          Write-Host "Setting PAC_PATH to .dotnet global tools path..."
-          echo "PAC_PATH=$env:USERPROFILE\.dotnet\tools\pac.exe" >> $env:GITHUB_ENV
-        shell: pwsh
-
-      # 🔍 Vérification du CLI
-      - name: 🔍 Verify PAC installation
+      # 🔍 Vérifie la version PAC (debug)
+      - name: 🔍 Verify PAC CLI
         run: |
           Write-Host "PAC path: $env:PAC_PATH"
           & $env:PAC_PATH help
         shell: pwsh
 
-      # 📦 Exporter la solution
+      # 📦 Exporte la solution
       - name: 📦 Export Solution
         uses: microsoft/powerplatform-actions/export-solution@v1
         with:
@@ -61,7 +68,7 @@ jobs:
           POWERPLATFORMTOOLS_PACINSTALLED: true
           POWERPLATFORMTOOLS_PACPATH: ${{ env.PAC_PATH }}
 
-      # 📂 Décompresser la solution
+      # 📂 Décompresse la solution
       - name: 📂 Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
@@ -72,7 +79,7 @@ jobs:
         env:
           POWERPLATFORMTOOLS_PACPATH: ${{ env.PAC_PATH }}
 
-      # 🚀 Publier la solution
+      # 🚀 Publie la solution
       - name: 🚀 Publish Solution
         uses: microsoft/powerplatform-actions/publish-solution@v1
         with:
@@ -82,7 +89,7 @@ jobs:
         env:
           POWERPLATFORMTOOLS_PACPATH: ${{ env.PAC_PATH }}
 
-      # 🧾 Commit éventuel
+      # 🧾 Commit les changements
       - name: 🧾 Commit solution changes
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
