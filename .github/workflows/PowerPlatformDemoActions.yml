@@ -14,47 +14,18 @@ jobs:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      # ✅ Vérifie que nuget est disponible
-      - name: 🧰 Ensure NuGet is available
+      # --- Étape de vérification du CLI Power Platform ---
+      - name: 🔍 Verify PAC installation
         run: |
-          $nugetPath = "C:\Windows\System32\nuget.exe"
-          if (-Not (Test-Path $nugetPath)) {
-            Write-Host "NuGet not found, downloading..."
-            Invoke-WebRequest "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe" -OutFile $nugetPath
+          if (-Not (Test-Path "C:\tools\pac\pac.exe")) {
+            Write-Error "❌ pac.exe introuvable dans C:\tools\pac — vérifie l'installation."
+            exit 1
           }
-          Write-Host "NuGet is ready at $nugetPath"
-          & $nugetPath help
+          Write-Host "✅ PAC CLI détecté dans C:\tools\pac"
+          & "C:\tools\pac\pac.exe" --help
         shell: pwsh
 
-      # ✅ Vérifie et installe Power Platform CLI si manquant
-      - name: ⚙️ Ensure Power Platform CLI
-        run: |
-          $pacPath = "$env:USERPROFILE\.dotnet\tools\pac.exe"
-          if (-Not (Test-Path $pacPath)) {
-            Write-Host "PAC CLI not found, installing..."
-            dotnet tool install --global Microsoft.PowerApps.CLI.Tool
-          } else {
-            Write-Host "PAC CLI already installed at $pacPath"
-          }
-          Write-Host "PAC CLI available at: $pacPath"
-          & $pacPath help
-          echo "PAC_PATH=$pacPath" >> $env:GITHUB_ENV
-        shell: pwsh
-
-      # ✅ Installe les outils Power Platform
-      - name: 🧱 Install Power Platform Tools
-        uses: microsoft/powerplatform-actions/actions-install@v1
-        env:
-          NUGET_EXE_PATH: C:\Windows\System32\nuget.exe
-
-      # 🔍 Vérifie la version PAC (debug)
-      - name: 🔍 Verify PAC CLI
-        run: |
-          Write-Host "PAC path: $env:PAC_PATH"
-          & $env:PAC_PATH help
-        shell: pwsh
-
-      # 📦 Exporte la solution
+      # --- Étape d'export de la solution ---
       - name: 📦 Export Solution
         uses: microsoft/powerplatform-actions/export-solution@v1
         with:
@@ -64,11 +35,14 @@ jobs:
           solution-name: 'aSolution'
           solution-output-file: 'aSolution.zip'
           working-directory: 'out'
+          managed: false
+          run-asynchronously: false
         env:
+          POWERPLATFORMTOOLS_PACPATH: C:\tools\pac\pac.exe
+          PAC_PATH: C:\tools\pac\pac.exe
           POWERPLATFORMTOOLS_PACINSTALLED: true
-          POWERPLATFORMTOOLS_PACPATH: ${{ env.PAC_PATH }}
 
-      # 📂 Décompresse la solution
+      # --- Étape de décompression de la solution ---
       - name: 📂 Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
@@ -77,9 +51,9 @@ jobs:
           solution-type: 'Unmanaged'
           overwrite-files: true
         env:
-          POWERPLATFORMTOOLS_PACPATH: ${{ env.PAC_PATH }}
+          POWERPLATFORMTOOLS_PACPATH: C:\tools\pac\pac.exe
 
-      # 🚀 Publie la solution
+      # --- Étape de publication de la solution ---
       - name: 🚀 Publish Solution
         uses: microsoft/powerplatform-actions/publish-solution@v1
         with:
@@ -87,9 +61,9 @@ jobs:
           user-name: 'nicoise.nkounkou@edu.igensia.com'
           password-secret: ${{ secrets.PASSWORD }}
         env:
-          POWERPLATFORMTOOLS_PACPATH: ${{ env.PAC_PATH }}
+          POWERPLATFORMTOOLS_PACPATH: C:\tools\pac\pac.exe
 
-      # 🧾 Commit les changements
+      # --- Étape finale : commit des modifications ---
       - name: 🧾 Commit solution changes
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
