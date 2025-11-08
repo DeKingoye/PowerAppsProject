@@ -24,7 +24,6 @@ jobs:
           }
           Copy-Item -Path "$source\*" -Destination $destination -Recurse -Force
           Write-Host "✅ pac.exe copié dans le workspace: $destination"
-          Write-Host "Contenu:"
           Get-ChildItem -Path $destination
         shell: pwsh
 
