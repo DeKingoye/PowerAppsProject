@@ -11,35 +11,38 @@ jobs:
     runs-on: self-hosted
 
     steps:
+      # --- 🧩 Cloner le dépôt ---
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      # --- Copie du PAC CLI dans le workspace ---
+      # --- ⚙️ Préparer Power Platform CLI ---
       - name: ⚙️ Préparer Power Platform CLI pour le runner
         run: |
           $source = "C:\Users\yannm\.dotnet\tools"
-          $destination = "$env:GITHUB_WORKSPACE\pac"
+          $destination = "C:\Users\yannm\actions-runner\_work\PowerAppsProject\PowerAppsProject\pac"
+          
           if (-Not (Test-Path $destination)) {
             New-Item -ItemType Directory -Path $destination | Out-Null
           }
+
           Copy-Item -Path "$source\*" -Destination $destination -Recurse -Force
           Write-Host "✅ pac.exe copié dans le workspace: $destination"
           Get-ChildItem -Path $destination
         shell: pwsh
 
-      # --- Vérification de l'exécutable PAC ---
-      - name: 🔍 Vérifier l’exécutable PAC
+      # --- 🔍 Vérification de l'installation PAC ---
+      - name: 🔍 Verify PAC installation
         run: |
-          $pacPath = "$env:GITHUB_WORKSPACE\pac\pac.exe"
+          $pacPath = "C:\Users\yannm\actions-runner\_work\PowerAppsProject\PowerAppsProject\pac\pac.exe"
           if (-Not (Test-Path $pacPath)) {
-            Write-Error "❌ pac.exe introuvable dans $pacPath"
+            Write-Error "❌ pac.exe introuvable dans $pacPath — vérifie l'installation."
             exit 1
           }
-          Write-Host "✅ PAC CLI détecté à $pacPath"
-          & $pacPath help | Out-Null
+          Write-Host "✅ PAC CLI détecté dans $pacPath"
+          & $pacPath help
         shell: pwsh
 
-      # --- Export de la solution ---
+      # --- 📦 Export de la solution ---
       - name: 📦 Export Solution
         uses: microsoft/powerplatform-actions/export-solution@v1
         with:
@@ -53,9 +56,10 @@ jobs:
           run-asynchronously: false
         env:
           POWERPLATFORMTOOLS_PACINSTALLED: true
-          POWERPLATFORMTOOLS_PACPATH: ${{ github.workspace }}\pac\pac.exe
+          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\actions-runner\_work\PowerAppsProject\PowerAppsProject\pac\pac.exe
+          PAC_PATH: C:\Users\yannm\actions-runner\_work\PowerAppsProject\PowerAppsProject\pac\pac.exe
 
-      # --- Décompression ---
+      # --- 📂 Décompression de la solution ---
       - name: 📂 Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
@@ -64,9 +68,9 @@ jobs:
           solution-type: 'Unmanaged'
           overwrite-files: true
         env:
-          POWERPLATFORMTOOLS_PACPATH: ${{ github.workspace }}\pac\pac.exe
+          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\actions-runner\_work\PowerAppsProject\PowerAppsProject\pac\pac.exe
 
-      # --- Publication ---
+      # --- 🚀 Publication de la solution ---
       - name: 🚀 Publish Solution
         uses: microsoft/powerplatform-actions/publish-solution@v1
         with:
@@ -74,9 +78,9 @@ jobs:
           user-name: 'nicoise.nkounkou@edu.igensia.com'
           password-secret: ${{ secrets.PASSWORD }}
         env:
-          POWERPLATFORMTOOLS_PACPATH: ${{ github.workspace }}\pac\pac.exe
+          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\actions-runner\_work\PowerAppsProject\PowerAppsProject\pac\pac.exe
 
-      # --- Commit final ---
+      # --- 🧾 Commit des changements ---
       - name: 🧾 Commit solution changes
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
