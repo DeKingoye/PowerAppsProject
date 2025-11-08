@@ -15,34 +15,47 @@ jobs:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      # --- ⚙️ Préparer Power Platform CLI ---
-      - name: ⚙️ Préparer Power Platform CLI pour le runner
+      # --- ⚙️ Préparer le binaire PAC ---
+      - name: ⚙️ Copy PAC CLI to stable path
         run: |
           $source = "C:\Users\yannm\.dotnet\tools"
-          $destination = "C:\Users\yannm\actions-runner\_work\PowerAppsProject\PowerAppsProject\pac"
-          
+          $destination = "C:\pac"
+
           if (-Not (Test-Path $destination)) {
             New-Item -ItemType Directory -Path $destination | Out-Null
           }
 
           Copy-Item -Path "$source\*" -Destination $destination -Recurse -Force
-          Write-Host "✅ pac.exe copié dans le workspace: $destination"
+          Write-Host "✅ pac.exe copié dans $destination"
           Get-ChildItem -Path $destination
         shell: pwsh
 
-      # --- 🔍 Vérification de l'installation PAC ---
+      # --- 🔍 Vérifier PAC ---
       - name: 🔍 Verify PAC installation
         run: |
-          $pacPath = "C:\Users\yannm\actions-runner\_work\PowerAppsProject\PowerAppsProject\pac\pac.exe"
+          $pacPath = "C:\pac\pac.exe"
           if (-Not (Test-Path $pacPath)) {
-            Write-Error "❌ pac.exe introuvable dans $pacPath — vérifie l'installation."
+            Write-Error "❌ pac.exe introuvable dans $pacPath — vérifie la copie."
             exit 1
           }
           Write-Host "✅ PAC CLI détecté dans $pacPath"
           & $pacPath help
         shell: pwsh
 
-      # --- 📦 Export de la solution ---
+      # --- 🔐 Authentification PAC ---
+      - name: 🔐 Authenticate with Power Platform
+        run: |
+          $pacPath = "C:\pac\pac.exe"
+          Write-Host "Connexion à Power Platform..."
+          & $pacPath auth clear
+          & $pacPath auth create --environment "https://org643d7b2c.crm12.dynamics.com" `
+            --username "nicoise.nkounkou@edu.igensia.com" `
+            --password "${{ secrets.PASSWORD }}" `
+            --cloud Public
+          Write-Host "✅ Authentification terminée"
+        shell: pwsh
+
+      # --- 📦 Export Solution ---
       - name: 📦 Export Solution
         uses: microsoft/powerplatform-actions/export-solution@v1
         with:
@@ -55,11 +68,11 @@ jobs:
           managed: false
           run-asynchronously: false
         env:
+          POWERPLATFORMTOOLS_PACPATH: C:\pac\pac.exe
+          PAC_PATH: C:\pac\pac.exe
           POWERPLATFORMTOOLS_PACINSTALLED: true
-          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\actions-runner\_work\PowerAppsProject\PowerAppsProject\pac\pac.exe
-          PAC_PATH: C:\Users\yannm\actions-runner\_work\PowerAppsProject\PowerAppsProject\pac\pac.exe
 
-      # --- 📂 Décompression de la solution ---
+      # --- 📂 Unpack Solution ---
       - name: 📂 Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
@@ -68,9 +81,9 @@ jobs:
           solution-type: 'Unmanaged'
           overwrite-files: true
         env:
-          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\actions-runner\_work\PowerAppsProject\PowerAppsProject\pac\pac.exe
+          POWERPLATFORMTOOLS_PACPATH: C:\pac\pac.exe
 
-      # --- 🚀 Publication de la solution ---
+      # --- 🚀 Publish Solution ---
       - name: 🚀 Publish Solution
         uses: microsoft/powerplatform-actions/publish-solution@v1
         with:
@@ -78,9 +91,9 @@ jobs:
           user-name: 'nicoise.nkounkou@edu.igensia.com'
           password-secret: ${{ secrets.PASSWORD }}
         env:
-          POWERPLATFORMTOOLS_PACPATH: C:\Users\yannm\actions-runner\_work\PowerAppsProject\PowerAppsProject\pac\pac.exe
+          POWERPLATFORMTOOLS_PACPATH: C:\pac\pac.exe
 
-      # --- 🧾 Commit des changements ---
+      # --- 🧾 Commit changes ---
       - name: 🧾 Commit solution changes
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
