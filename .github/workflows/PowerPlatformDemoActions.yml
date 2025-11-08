@@ -14,7 +14,7 @@ jobs:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      # --- Étape de vérification du CLI Power Platform ---
+      # --- Vérification de l'installation PAC ---
       - name: 🔍 Verify PAC installation
         run: |
           if (-Not (Test-Path "C:\tools\pac\pac.exe")) {
@@ -22,7 +22,7 @@ jobs:
             exit 1
           }
           Write-Host "✅ PAC CLI détecté dans C:\tools\pac"
-          & "C:\tools\pac\pac.exe" --help
+          & "C:\tools\pac\pac.exe" help | Out-Null
         shell: pwsh
 
       # --- Étape d'export de la solution ---
@@ -42,7 +42,7 @@ jobs:
           PAC_PATH: C:\tools\pac\pac.exe
           POWERPLATFORMTOOLS_PACINSTALLED: true
 
-      # --- Étape de décompression de la solution ---
+      # --- Décompression de la solution ---
       - name: 📂 Unpack Solution
         uses: microsoft/powerplatform-actions/unpack-solution@v1
         with:
@@ -53,7 +53,7 @@ jobs:
         env:
           POWERPLATFORMTOOLS_PACPATH: C:\tools\pac\pac.exe
 
-      # --- Étape de publication de la solution ---
+      # --- Publication de la solution ---
       - name: 🚀 Publish Solution
         uses: microsoft/powerplatform-actions/publish-solution@v1
         with:
@@ -63,7 +63,7 @@ jobs:
         env:
           POWERPLATFORMTOOLS_PACPATH: C:\tools\pac\pac.exe
 
-      # --- Étape finale : commit des modifications ---
+      # --- Commit final ---
       - name: 🧾 Commit solution changes
         uses: microsoft/powerplatform-actions/branch-solution@v1
         with:
